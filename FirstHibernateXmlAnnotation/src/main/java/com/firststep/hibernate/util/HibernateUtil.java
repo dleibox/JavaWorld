@@ -7,6 +7,7 @@ import org.hibernate.cfg.Configuration;
 import org.hibernate.service.ServiceRegistry;
 
 import java.util.Properties;
+import java.util.concurrent.Callable;
 
 /**
  * Created by daniel on 9/8/2014.
@@ -21,15 +22,26 @@ public class HibernateUtil {
     //Property based configuration
     private static SessionFactory sessionJavaConfigFactory;
 
-    private static SessionFactory buildSessionFactory() {
+    //private static SessionFactory buildSessionFactory (Callable<Configuration> fn, Runnable prt){
+    private static SessionFactory buildSessionFactory (Callable<Configuration> fn, Runnable prt){
         try {
-            // Create the SessionFactory from hibernate.cfg.xml
-            Configuration configuration = new Configuration();
-            configuration.configure("hibernate.cfg.xml");
-            System.out.println("Hibernate Configuration loaded");
+            Configuration configuration;
+            if(fn != null){
+                configuration = fn.call();
+            }
+            else {
+                // Create the SessionFactory from hibernate.cfg.xml
+                configuration = new Configuration();
+                configuration.configure("hibernate.cfg.xml");
+                System.out.println("Hibernate Configuration loaded");
+            }
 
             ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties()).build();
-            System.out.println("Hibernate serviceRegistry created");
+
+            if(prt != null && fn != null)
+                prt.run();
+            else
+                System.out.println("Hibernate serviceRegistry created");
 
             SessionFactory sessionFactory = configuration.buildSessionFactory(serviceRegistry);
 
@@ -40,31 +52,25 @@ public class HibernateUtil {
             System.err.println("Initial SessionFactory creation failed." + ex);
             throw new ExceptionInInitializerError(ex);
         }
+    }
+
+    private static SessionFactory buildSessionFactory() {
+        return buildSessionFactory(null, null);
     }
 
     private static SessionFactory buildSessionAnnotationFactory() {
-        try {
-            // Create the SessionFactory from hibernate.cfg.xml
+        return buildSessionFactory(() -> {
             Configuration configuration = new Configuration();
             configuration.configure("hibernate-annotation.cfg.xml");
             System.out.println("Hibernate Annotation Configuration loaded");
-
-            ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties()).build();
+            return configuration;
+        }, () -> {
             System.out.println("Hibernate Annotation serviceRegistry created");
-
-            SessionFactory sessionFactory = configuration.buildSessionFactory(serviceRegistry);
-
-            return sessionFactory;
-        }
-        catch (Throwable ex) {
-            // Make sure you log the exception, as it might be swallowed
-            System.err.println("Initial SessionFactory creation failed." + ex);
-            throw new ExceptionInInitializerError(ex);
-        }
+        });
     }
 
     private static SessionFactory buildSessionJavaConfigFactory() {
-        try {
+        return buildSessionFactory(() -> {
             Configuration configuration = new Configuration();
 
             //Create Properties, can be read from property files too
@@ -81,18 +87,10 @@ public class HibernateUtil {
             //addClass(Employee1.class) will look for resource
             // com/firststep/hibernate/model/Employee1.hbm.xml (not good)
             configuration.addAnnotatedClass(Employee1.class);
-
-            ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder().applySettings(configuration.getProperties()).build();
+            return configuration;
+        }, () -> {
             System.out.println("Hibernate Java Config serviceRegistry created");
-
-            SessionFactory sessionFactory = configuration.buildSessionFactory(serviceRegistry);
-
-            return sessionFactory;
-        }
-        catch (Throwable ex) {
-            System.err.println("Initial SessionFactory creation failed." + ex);
-            throw new ExceptionInInitializerError(ex);
-        }
+        });
     }
 
     public static SessionFactory getSessionFactory() {
