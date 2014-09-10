@@ -24,9 +24,10 @@ public class App {
 //        for (Person person : persons) {
 //            System.out.println(person);
 //        }
-        persons.forEach(person ->{
-            System.out.println(person);
-        });
+//        persons.forEach(person ->{
+//            System.out.println(person);
+//        });
+        persons.forEach(System.out::print);
         context.close();
     }
 }
